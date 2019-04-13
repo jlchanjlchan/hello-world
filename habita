@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Apr  2 18:05:49 2019
+Created on Sat Apr 13 04:30:40 2019
 
 @author: Jin Lung i Eric Ariño
 """
@@ -8,78 +8,97 @@ Created on Tue Apr  2 18:05:49 2019
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
+import requests
 
+URL_BASE = "https://www.habitaclia.com/alquiler-barcelona-"
+#modificació de l'user agent
+headers = {'User-Agent': 'Mozilla/5.0'}
+MAX_PAGES = 10
+counter = 1
+d=[]
 
+#control de les restriccions del ftixer robots.txt
+response = requests.get('https://www.habitaclia.com/robots.txt')
+robots = response.text
+print("Fitxer robots.txt de https://www.habitaclia.com")
+print("Verificació de restriccions:\n")
+print(robots)
 
+print("\nRealitzant scraping")
 
+for i in range(1, MAX_PAGES):
 
-"""EXEMPLE D'UNA WEB REAL"""
-pagina = requests.get("https://www.habitaclia.com/alquiler-barcelona.htm")
+    if i < 1:
+        url = URL_BASE
+    else:
+        url = "%s%d.htm" % (URL_BASE, i)
+        print(url)
+        req = requests.get(url,headers=headers)
+    # Comprobamos que la petición nos devuelve un Status Code = 200
+        statusCode = req.status_code
+        
+        if statusCode == 200:
+            
+        # Pasamos el contenido HTML de la web a un objeto BeautifulSoup()
+            html = BeautifulSoup(req.text, "html.parser")
+            
+        # Obtenemos todos los divs donde estan las entradas
+            #entradas = html.find_all("list-item-content")
+            panell = html.find(id="js-list")
+            entradas = panell.find_all(class_="list-item-content")
+            
+        # Recorremos todas las entradas para extraer el título, autor y fecha
+            for entrada in entradas:
+                counter += 1
+                #Bucle pels titols dels anuncis                
+                titols = entrada.find(class_= 'list-item-title').get_text()
+                TipusImmoble = entrada.find(class_= 'list-item-title').get_text()
+                             
+                #Bucle pels preus dels anuncis
+                #preus = entrada.find(class_ = 'font-2').get_text()
+                #preus = panell.select(".list-item-content-second .font-2")
+                preus = entrada.find(".list-item-content-second .font-2")
 
-#Passem el contingut HTML de la web a un objecte BeautifulSoup():
-traduit = BeautifulSoup(pagina.content, 'html.parser')
-panell = traduit.find(id="js-list")
-#list-item-content
-primer_contingut = panell.find_all(class_="list-item-content")
-preu = panell.find_all(class_="list-item-content-second")
-p_contingut = primer_contingut[0]
-s_contingut = preu[0]
-#print(p_contingut.prettify())
+                #Bucle per la localitzacio dels anuncis:
+                barri = entrada.find(class_ = 'list-item-location').get_text()
+                
+                #Bucle per les descripcions dels anuncis:
+                descripcions = entrada.find(class_= 'list-item-description').get_text()
+                
+                #Bucle pels metres dels anuncis:
+                metres = entrada.find(class_= 'list-item-feature').get_text()
+                
+                #Bucle pels metres dels anuncis:
+                lavabos = entrada.find(class_= 'list-item-feature').get_text()
+                
+                 #Bucle pels metres dels anuncis:
+                habitacions = entrada.find(class_= 'list-item-feature').get_text()
+            
+            # Imprimo el Título, Autor y Fecha de las entradas
 
+                d.append({
+                       #count":counter,
+                       "Titol": titols,
+                       "TipusImmoble": TipusImmoble,
+                       "Preu": preus,
+                       "Barri": barri,
+                       "Metres": metres,
+                       "Lavabo": lavabos ,
+                       "Habitacions": habitacions,
+                       "Descripcio": descripcions,
+                      })
+                taula=pd.DataFrame(d)
+                taula['Metres']=taula.Metres.str.extract('(\d+)')
+                taula['Lavabo']=taula.Lavabo.str.extract('.+(\d+) baño')
+                taula['Habitacions']=taula.Habitacions.str.extract('.+(\d+) habitaciones')
+                taula['Barri']=taula.Barri.str.extract('Barcelona - (.+)')
+                taula['TipusImmoble']=taula.TipusImmoble.str.extract('Alquiler (.+?)\s')
+                
 
+    #print (counter,metres)    
+        else:
+        # Si ya no existe la página y me da un 400
+            break 
 
-titols = p_contingut.find(class_= "list-item-title").get_text()
-localitzacio = p_contingut.find(class_= "list-item-location").get_text()
-metres = p_contingut.find(class_= "list-item-feature").get_text()
-descripcions = p_contingut.find(class_= "list-item-description").get_text()
-
-preu = s_contingut.find(class_= "font-2").get_text()
-
-
-print(titols, localitzacio, preu, sep= '\n')
-
-
-#Bucle per els titols dels anuncis:
-tot_titols = panell.select(".list-item-content .list-item-title")
-titols = [pt.get_text() for pt in tot_titols]
-print(titols)
-
-#Bucle per els titols dels anuncis, estan a un altre section per tant es fara diferent:
-tot_preus = panell.select(".list-item-content-second .font-2")
-preus = [pt.get_text() for pt in tot_preus]
-print(preus)
-
-#Bucle per la localitzacio dels anuncis:
-tot_localitzacions = panell.select(".list-item-content .list-item-location")
-localitzacions = [pt.get_text() for pt in tot_localitzacions]
-print(localitzacions)
-
-#Bucle per les descripcions dels anuncis:
-tot_descripcions = panell.select(".list-item-content .list-item-description")
-descripcions = [pt.get_text() for pt in tot_descripcions]
-print(descripcions)
-
-#Bucle per els metres dels anuncis:
-tot_metres = panell.select(".list-item-content .list-item-feature")
-metres = [pt.get_text() for pt in tot_metres]
-print(metres)
-
-print(titols, preus, localitzacions, descripcions, metres)
-
-
-# Utilitzem la llibreria pandas per passar les dades a un Dataframe:
-taula = pd.DataFrame({
-        "Titol": titols,
-        "Preu": preus,
-        "Localitzacio": localitzacions,
-        "Descripcio": descripcions,
-        "Metres": metres,
-    })
-taula
-
-
-
-
-
-
-
+taula.to_excel('habitaclia.xls')
+taula.to_csv('habitaclia.csv')
